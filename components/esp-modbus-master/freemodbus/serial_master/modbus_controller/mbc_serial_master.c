@@ -656,6 +656,7 @@ esp_err_t mbc_serial_master_create(void** handler)
     mbm_opts->mbm_comm.port = MB_UART_PORT;
     mbm_opts->mbm_comm.baudrate = MB_DEVICE_SPEED;
     mbm_opts->mbm_comm.parity = MB_PARITY_NONE;
+    
 
     // Initialization of active context of the modbus controller
     BaseType_t status = 0;

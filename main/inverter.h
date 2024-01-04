@@ -16,4 +16,5 @@ int INV_RpmUp(uint8_t rpm_to_increase);
 int INV_RpmDown(uint8_t rpm_to_decrease);
 int INV_GetDirection(void);
 void delay_between_commands(void);
+void ReadRandomDataFrom_Modbus();
 

@@ -21,7 +21,7 @@
 
 #define CONFIG_MB_COMM_MODE_RTU 1
 #define MB_PORT_NUM (UART_NUM_2) // Number of UART port used for Modbus connection
-#define MB_DEV_SPEED (19200)     // The communication speed of the UART
+#define MB_DEV_SPEED (19200)     //(9600)      //(19200)     // The communication speed of the UART
 
 #define CONFIG_MB_UART_TXD 17
 #define CONFIG_MB_UART_RXD 16
@@ -87,6 +87,7 @@ int INV_InverterInit(void)
 #elif CONFIG_MB_COMM_MODE_RTU
         .mode = MB_MODE_RTU,
 #endif
+
         .baudrate = MB_DEV_SPEED,
         .parity = UART_PARITY_EVEN,
 
@@ -99,6 +100,8 @@ int INV_InverterInit(void)
 
     if (err != ESP_OK)
         printf("mb controller initialization fail, returns(0x%lx).\r\n", (uint32_t)err);
+
+    // xMBPortSerialInit(MB_PORT_NUM, MB_DEV_SPEED, Char ucDataBits, eMBParity parity);
 
     err = mbc_master_setup((void *)&comm);
     if (err != ESP_OK)
@@ -136,43 +139,18 @@ int INV_InverterInit(void)
     /*
      * Set controller to init state
      */
-    INV_GetInverterState();
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    printf("3.\r\n");
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    printf("2.\r\n");
-    printf("Turn off.\r\n");
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
+    // INV_GetInverterState();
 
-    /* Turn off */
-    INV_TurnOffMotor();
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
-    INV_GetInverterState();
-    vTaskDelay(delay_100_ms);
-    vTaskDelay(delay_100_ms);
+    // vTaskDelay(delay_100_ms);
+    // printf("Turn off.\r\n");
 
-    /* Set freqency to 0 */
-    INV_SetFreqValue(1);
+    // /* Turn off */
+    // INV_TurnOffMotor();
+    // vTaskDelay(delay_100_ms);
+    // INV_GetInverterState();
+
+    // /* Set freqency to 0 */
+    // INV_SetFreqValue(1);
 
     return INVERTER_INIT_SUCCESS;
 } /* INIT */
@@ -404,4 +382,162 @@ void INV_SetUpperLimitFrq(uint16_t limit_of_freq)
 void delay_between_commands(void)
 {
     vTaskDelay(delay_100_ms);
+}
+
+// informacje o błędach
+// zużycie energii przez grzałkę i sprężarkę
+// temperatury zasilania i powrotu czynnika grzewczego (wody)
+// dobowy czas pracy z rozdzieleniem na cwu i CO
+// ilość załączeń sprężarki w ciągu doby
+// temperatury gazów w sprężarce
+// ciśnienie gazów na presostatach przy danych temperaturach
+// wartość prędkości przepływu
+
+uint8_t HP_GetErrors_Panasonic(void)
+{
+    request.slave_addr = SLAVE_ID;
+    request.command = COMMAND_READ;
+    request.reg_start = 0x0034;
+    request.reg_size = 2;
+
+    error = mbc_master_send_request(&request, rcv_data);
+
+    printf("Errorcode from Panasonic: 0x%X%X - ", rcv_data[0], rcv_data[1]);
+    if (rcv_data[0] == 0x0)
+        printf("NO errors\r\n");
+    else if (rcv_data[0] == 0x1)
+        printf("Error H%d\r\n", rcv_data[1]);
+    else if (rcv_data[0] == 0x2)
+        printf("Error F%d\r\n", rcv_data[1]);
+    return rcv_data[0];
+}
+
+uint16_t HP_GetPowerHeater_Panasonic(void)
+{
+    uint16_t return_value;
+    request.slave_addr = SLAVE_ID;
+    request.command = COMMAND_READ;
+    request.reg_start = 0x002E;
+    request.reg_size = 2;
+
+    error = mbc_master_send_request(&request, rcv_data);
+
+    printf("Heater enrgy consumption form Panasnic: 0x%X%X - ", rcv_data[0], rcv_data[1]);
+    return_value = *rcv_data;
+    return return_value;
+}
+
+uint16_t HP_GetPowerCooler_Panasonic(void)
+{
+    uint16_t return_value;
+    request.slave_addr = SLAVE_ID;
+    request.command = COMMAND_READ;
+    request.reg_start = 0x002F;
+    request.reg_size = 2;
+
+    error = mbc_master_send_request(&request, rcv_data);
+
+    printf("Cooler energy consumption form Panasnic: 0x%X%X - ", rcv_data[0], rcv_data[1]);
+    return_value = *rcv_data;
+    return return_value;
+}
+
+uint16_t HP_OutletWaterTemperature_Panasonic(void)
+{
+    uint16_t return_value;
+    request.slave_addr = SLAVE_ID;
+    request.command = COMMAND_READ;
+    request.reg_start = 0x0002;
+    request.reg_size = 2;
+
+    error = mbc_master_send_request(&request, rcv_data);
+
+    printf("Outlet temperature form Panasonic: 0x%X%X - ", rcv_data[0], rcv_data[1]);
+    return_value = *rcv_data;
+    return return_value;
+}
+
+uint16_t HP_InletWaterTemperature_Panasonic(void)
+{
+    uint16_t return_value;
+    request.slave_addr = SLAVE_ID;
+    request.command = COMMAND_READ;
+    request.reg_start = 0x0003;
+    request.reg_size = 2;
+
+    error = mbc_master_send_request(&request, rcv_data);
+
+    printf("Inlet temperature form Panasonic: 0x%X%X - ", rcv_data[0], rcv_data[1]);
+    return_value = *rcv_data;
+    return return_value;
+}
+
+uint8_t HP_GetErrors_York(void)
+{
+    request.slave_addr = SLAVE_ID;
+    request.command = COMMAND_READ;
+    request.reg_start = 0x007C;
+    request.reg_size = 2;
+
+    error = mbc_master_send_request(&request, rcv_data);
+
+    printf("Errorcode from York: 0x%X%X - ", rcv_data[0], rcv_data[1]);
+    printf("Errorcode from York: 0x%d%d - ", rcv_data[0], rcv_data[1]);
+    if (rcv_data[0] == 0x0)
+        printf("NO errors\r\n");
+    else if (rcv_data[0] == 0x1)
+        printf("Error H%d\r\n", rcv_data[1]);
+    else if (rcv_data[0] == 0x2)
+        printf("Error F%d\r\n", rcv_data[1]);
+    return rcv_data[0];
+}
+
+uint16_t HP_GetPowerHeater_York(void)
+{
+    uint16_t return_value;
+    request.slave_addr = SLAVE_ID;
+    request.command = COMMAND_READ;
+    request.reg_start = 0x002E;
+    request.reg_size = 2;
+
+    error = mbc_master_send_request(&request, rcv_data);
+
+    printf("Heater enrgy consumption form York: 0x%X%X - ", rcv_data[0], rcv_data[1]);
+    return_value = *rcv_data;
+    return return_value;
+}
+
+uint16_t HP_GetPowerCooler_York(void)
+{
+    uint16_t return_value;
+    request.slave_addr = SLAVE_ID;
+    request.command = COMMAND_READ;
+    request.reg_start = 0x002F;
+    request.reg_size = 2;
+
+    error = mbc_master_send_request(&request, rcv_data);
+
+    printf("Cooler energy consumption form York: 0x%X%X - ", rcv_data[0], rcv_data[1]);
+    return_value = *rcv_data;
+    return return_value;
+}
+void ReadRandomDataFrom_Modbus()
+{
+    request.slave_addr = SLAVE_ID;
+    request.command = COMMAND_READ;
+    request.reg_start = 0x0000;
+
+    request.reg_size = 2;
+
+    for (int i = 0; i < 10000; i++)
+    {
+
+        error = mbc_master_send_request(&request, rcv_data);
+        CheckMbResponse(error);
+
+        printf("Data from address 0x%X  equals: 0x%X%X - \r\n", request.reg_start, rcv_data[1], rcv_data[0]);
+        request.reg_start += 1;
+
+        //vTaskDelay(delay_100_ms);
+    }
 }
