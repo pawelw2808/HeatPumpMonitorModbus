@@ -10,5 +10,6 @@ ReadRandomDataFrom_Modbus();
 // INV_TurnOnMotor(1);
 // vTaskDelay(3000);
 // INV_TurnOffMotor();
+//sprawdzam pushna server
 
 }
